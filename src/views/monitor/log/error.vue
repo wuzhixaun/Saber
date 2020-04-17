@@ -32,6 +32,10 @@
           total: 0
         },
         option: {
+          height: 'auto',
+          calcHeight: 80,
+          searchShow: true,
+          searchMenuSpan: 6,
           tip: false,
           border: true,
           index: true,
@@ -40,6 +44,7 @@
           addBtn: false,
           delBtn: false,
           menuWidth: 120,
+          dialogType: 'drawer',
           column: [
             {
               label: "服务id",

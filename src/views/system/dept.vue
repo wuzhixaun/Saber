@@ -45,6 +45,10 @@
           total: 0
         },
         option: {
+          height: 'auto',
+          calcHeight: 80,
+          searchShow: true,
+          searchMenuSpan: 6,
           tip: false,
           tree: true,
           border: true,
@@ -154,30 +158,30 @@
       }
     },
     methods: {
-      rowSave(row, loading, done) {
+      rowSave(row, done, loading) {
         add(row).then(() => {
-          loading();
+          done();
           this.onLoad(this.page);
           this.$message({
             type: "success",
             message: "操作成功!"
           });
         }, error => {
-          done();
-          console.log(error);
+          window.console.log(error);
+          loading();
         });
       },
-      rowUpdate(row, index, loading, done) {
+      rowUpdate(row, index, done, loading) {
         update(row).then(() => {
-          loading();
+          done();
           this.onLoad(this.page);
           this.$message({
             type: "success",
             message: "操作成功!"
           });
         }, error => {
-          done();
-          console.log(error);
+          window.console.log(error);
+          loading();
         });
       },
       rowDel(row) {
@@ -248,9 +252,8 @@
         getList(page.currentPage, page.pageSize, Object.assign(params, this.query)).then(res => {
           this.data = res.data.data;
           getDeptTree().then(res => {
-            const data = res.data.data;
-            const index = this.$refs.crud.findColumnIndex("parentId");
-            this.option.column[index].dicData = data;
+            const column = this.findObject(this.option.column, "parentId");
+            column.dicData = res.data.data;
           });
         });
       }

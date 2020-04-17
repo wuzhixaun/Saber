@@ -90,12 +90,15 @@
           deptTree: [],
         },
         option: {
+          height: 'auto',
+          calcHeight: 80,
+          searchShow: true,
+          searchMenuSpan: 6,
           tip: false,
           border: true,
           index: true,
           selection: true,
           viewBtn: true,
-          dialogHeight: 450,
           column: [
             {
               label: "登录账号",
@@ -173,6 +176,7 @@
                 label: "title"
               },
               slot: true,
+              checkStrictly: true,
               rules: [{
                 required: true,
                 message: "请选择所属角色",
@@ -189,6 +193,7 @@
                 label: "title"
               },
               slot: true,
+              checkStrictly: true,
               rules: [{
                 required: true,
                 message: "请选择所属部门",
@@ -249,12 +254,12 @@
       'form.tenantId'() {
         if (this.form.tenantId !== '') {
           getDeptTree(this.form.tenantId).then(res => {
-            const index = this.$refs.crud.findColumnIndex("deptId");
-            this.option.column[index].dicData = res.data.data;
+            const column = this.findObject(this.option.column, "deptId");
+            column.dicData = res.data.data;
           });
           getRoleTree(this.form.tenantId).then(res => {
-            const index = this.$refs.crud.findColumnIndex("roleId");
-            this.option.column[index].dicData = res.data.data;
+            const column = this.findObject(this.option.column, "roleId");
+            column.dicData = res.data.data;
           });
         }
       }
@@ -278,34 +283,34 @@
       },
     },
     methods: {
-      rowSave(row, loading, done) {
+      rowSave(row, done, loading) {
         row.deptId = row.deptId.join(",");
         row.roleId = row.roleId.join(",");
         add(row).then(() => {
-          loading();
+          done();
           this.onLoad(this.page);
           this.$message({
             type: "success",
             message: "操作成功!"
           });
         }, error => {
-          done();
-          console.log(error);
+          window.console.log(error);
+          loading();
         });
       },
-      rowUpdate(row, index, loading, done) {
+      rowUpdate(row, index, done, loading) {
         row.deptId = row.deptId.join(",");
         row.roleId = row.roleId.join(",");
         update(row).then(() => {
-          loading();
+          done();
           this.onLoad(this.page);
           this.$message({
             type: "success",
             message: "操作成功!"
           });
         }, error => {
-          done();
-          console.log(error);
+          window.console.log(error);
+          loading();
         });
       },
       rowDel(row) {
@@ -395,10 +400,10 @@
         }
         done();
       },
-      currentChange(currentPage){
+      currentChange(currentPage) {
         this.page.currentPage = currentPage;
       },
-      sizeChange(pageSize){
+      sizeChange(pageSize) {
         this.page.pageSize = pageSize;
       },
       onLoad(page, params = {}) {
@@ -408,12 +413,12 @@
           this.data = data.records;
         });
         getDeptTree(this.form.tenantId).then(res => {
-          const index = this.$refs.crud.findColumnIndex("deptId");
-          this.option.column[index].dicData = res.data.data;
+          const column = this.findObject(this.option.column, "deptId");
+          column.dicData = res.data.data;
         });
         getRoleTree(this.form.tenantId).then(res => {
-          const index = this.$refs.crud.findColumnIndex("roleId");
-          this.option.column[index].dicData = res.data.data;
+          const column = this.findObject(this.option.column, "roleId");
+          column.dicData = res.data.data;
         });
       }
     }
