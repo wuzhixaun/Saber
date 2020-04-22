@@ -3,41 +3,47 @@
     <avue-crud :option="option"
                :table-loading="loading"
                :data="data"
-               ref="crud"
-               v-model="form"
                :page="page"
                :permission="permissionList"
-               @row-del="rowDel"
+               :before-open="beforeOpen"
+               v-model="form"
+               ref="crud"
                @row-update="rowUpdate"
                @row-save="rowSave"
+               @row-del="rowDel"
                @search-change="searchChange"
                @search-reset="searchReset"
                @selection-change="selectionChange"
                @current-change="currentChange"
                @size-change="sizeChange"
+               @refresh-change="refreshChange"
                @on-load="onLoad">
       <template slot="menuLeft">
         <el-button type="danger"
                    size="small"
                    icon="el-icon-delete"
-                   v-if="permission.tenant_delete"
                    plain
+                   v-if="permission.post_delete"
                    @click="handleDelete">删 除
         </el-button>
+      </template>
+      <template slot-scope="{row}"
+                slot="category">
+        <el-tag>{{row.categoryName}}</el-tag>
       </template>
     </avue-crud>
   </basic-container>
 </template>
 
 <script>
-  import {getList, remove, update, add} from "@/api/system/tenant";
+  import {getList, getDetail, add, update, remove} from "@/api/system/post";
   import {mapGetters} from "vuex";
+  import website from "@/config/website";
 
   export default {
     data() {
       return {
         form: {},
-        selectionList: [],
         query: {},
         loading: true,
         page: {
@@ -45,64 +51,94 @@
           currentPage: 1,
           total: 0
         },
+        selectionList: [],
         option: {
           height: 'auto',
           calcHeight: 80,
+          tip: false,
           searchShow: true,
           searchMenuSpan: 6,
-          tip: false,
           border: true,
           index: true,
-          selection: true,
           viewBtn: true,
+          selection: true,
           column: [
             {
-              label: "租户ID",
+              label: "所属租户",
               prop: "tenantId",
-              search: true,
+              type: "tree",
+              dicUrl: "/api/blade-system/tenant/select",
               addDisplay: false,
               editDisplay: false,
+              viewDisplay: website.tenantMode,
               span: 24,
+              props: {
+                label: "tenantName",
+                value: "tenantId"
+              },
+              hide: !website.tenantMode,
               rules: [{
                 required: true,
-                message: "请输入租户ID",
-                trigger: "blur"
+                message: "请输入所属租户",
+                trigger: "click"
               }]
             },
             {
-              label: "租户名称",
-              prop: "tenantName",
+              label: "岗位类型",
+              prop: "category",
+              type: "select",
+              dicUrl: "/api/blade-system/dict/dictionary?code=post_category",
+              props: {
+                label: "dictValue",
+                value: "dictKey"
+              },
+              dataType: "number",
+              slot: true,
               search: true,
-              span: 24,
               rules: [{
                 required: true,
-                message: "请输入参数名称",
+                message: "请选择岗位类型",
                 trigger: "blur"
               }]
             },
             {
-              label: "联系人",
-              prop: "linkman",
+              label: "岗位编号",
+              prop: "postCode",
               search: true,
-              span: 24,
               rules: [{
                 required: true,
-                message: "请输入联系人",
+                message: "请输入岗位编号",
                 trigger: "blur"
               }]
             },
             {
-              label: "联系电话",
-              prop: "contactNumber",
-              span: 24,
+              label: "岗位名称",
+              prop: "postName",
+              search: true,
+              rules: [{
+                required: true,
+                message: "请输入岗位名称",
+                trigger: "blur"
+              }]
             },
             {
-              label: "联系地址",
-              prop: "address",
+              label: "岗位排序",
+              prop: "sort",
+              type: "number",
+              rules: [{
+                required: true,
+                message: "请输入岗位排序",
+                trigger: "blur"
+              }]
+            },
+            {
+              label: "岗位描述",
+              prop: "remark",
+              type: "textarea",
               span: 24,
               minRows: 6,
-              type: "textarea",
-            }
+              hide: true,
+            },
           ]
         },
         data: []
@@ -112,10 +148,10 @@
       ...mapGetters(["permission"]),
       permissionList() {
         return {
-          addBtn: this.vaildData(this.permission.tenant_add, false),
-          viewBtn: this.vaildData(this.permission.tenant_view, false),
-          delBtn: this.vaildData(this.permission.tenant_delete, false),
-          editBtn: this.vaildData(this.permission.tenant_edit, false)
+          addBtn: this.vaildData(this.permission.post_add, false),
+          viewBtn: this.vaildData(this.permission.post_view, false),
+          delBtn: this.vaildData(this.permission.post_delete, false),
+          editBtn: this.vaildData(this.permission.post_edit, false)
         };
       },
       ids() {
@@ -129,12 +165,12 @@
     methods: {
       rowSave(row, done, loading) {
         add(row).then(() => {
-          done();
           this.onLoad(this.page);
           this.$message({
             type: "success",
             message: "操作成功!"
           });
+          done();
         }, error => {
           window.console.log(error);
           loading();
@@ -142,12 +178,12 @@
       },
       rowUpdate(row, index, done, loading) {
         update(row).then(() => {
-          done();
           this.onLoad(this.page);
           this.$message({
             type: "success",
             message: "操作成功!"
           });
+          done();
         }, error => {
           window.console.log(error);
           loading();
@@ -169,17 +205,6 @@
               message: "操作成功!"
             });
           });
-      },
-      searchReset() {
-        this.query = {};
-        this.onLoad(this.page);
-      },
-      searchChange(params) {
-        this.query = params;
-        this.onLoad(this.page, params);
-      },
-      selectionChange(list) {
-        this.selectionList = list;
       },
       handleDelete() {
         if (this.selectionList.length === 0) {
@@ -203,11 +228,39 @@
             this.$refs.crud.toggleSelection();
           });
       },
+      beforeOpen(done, type) {
+        if (["edit", "view"].includes(type)) {
+          getDetail(this.form.id).then(res => {
+            this.form = res.data.data;
+          });
+        }
+        done();
+      },
+      searchReset() {
+        this.query = {};
+        this.onLoad(this.page);
+      },
+      searchChange(params, done) {
+        this.query = params;
+        this.page.currentPage = 1;
+        this.onLoad(this.page, params);
+        done();
+      },
+      selectionChange(list) {
+        this.selectionList = list;
+      },
+      selectionClear() {
+        this.selectionList = [];
+        this.$refs.crud.toggleSelection();
+      },
       currentChange(currentPage) {
         this.page.currentPage = currentPage;
       },
       sizeChange(pageSize) {
         this.page.pageSize = pageSize;
+      },
+      refreshChange() {
+        this.onLoad(this.page, this.query);
       },
       onLoad(page, params = {}) {
         this.loading = true;
@@ -216,6 +269,7 @@
           this.page.total = data.total;
           this.data = data.records;
           this.loading = false;
+          this.selectionClear();
         });
       }
     }

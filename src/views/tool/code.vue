@@ -37,8 +37,6 @@
                    size="small"
                    icon="el-icon-document-copy"
                    v-if="permission.code_edit"
-                   plain
-                   class="none-border"
                    @click.stop="handleCopy(scope.row)">复制
         </el-button>
       </template>
@@ -368,10 +366,3 @@
     }
   };
 </script>
-
-<style>
-  .none-border {
-    border: 0;
-    background-color: transparent !important;
-  }
-</style>

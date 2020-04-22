@@ -1,6 +1,7 @@
 <template>
   <basic-container>
     <avue-crud :option="option"
+               :table-loading="loading"
                :data="data"
                ref="crud"
                v-model="form"
@@ -24,6 +25,16 @@
                    @click="handleDelete">删 除
         </el-button>
       </template>
+      <template slot-scope="scope" slot="menu">
+        <el-button
+          type="text"
+          icon="el-icon-circle-plus-outline"
+          size="small"
+          @click.stop="handleAdd(scope.row,scope.index)"
+          v-if="userInfo.authority.includes('admin')"
+        >新增子项
+        </el-button>
+      </template>
     </avue-crud>
   </basic-container>
 </template>
@@ -37,6 +48,7 @@
       return {
         form: {},
         selectionList: [],
+        loading: true,
         query: {},
         page: {
           pageSize: 10,
@@ -54,6 +66,7 @@
           index: true,
           selection: true,
           viewBtn: true,
+          menuWidth: 300,
           column: [
             {
               label: "字典编号",
@@ -124,7 +137,7 @@
       };
     },
     computed: {
-      ...mapGetters(["permission"]),
+      ...mapGetters(["userInfo", "permission"]),
       permissionList() {
         return {
           addBtn: this.vaildData(this.permission.dict_add, false),
@@ -142,6 +155,21 @@
       }
     },
     methods: {
+      handleAdd(row) {
+        this.$refs.crud.value.code = row.code;
+        this.$refs.crud.value.parentId = row.id;
+        this.$refs.crud.option.column.filter(item => {
+          if (item.prop === "code") {
+            item.value = row.code;
+            item.addDisabled = true;
+          }
+          if (item.prop === "parentId") {
+            item.value = row.id;
+            item.addDisabled = true;
+          }
+        });
+        this.$refs.crud.rowAdd();
+      },
       rowSave(row, done, loading) {
         add(row).then(() => {
           done();
@@ -233,8 +261,10 @@
         this.page.pageSize = pageSize;
       },
       onLoad(page, params = {}) {
+        this.loading = true;
         getList(page.currentPage, page.pageSize, Object.assign(params, this.query)).then(res => {
           this.data = res.data.data;
+          this.loading = false;
           getDictTree().then(res => {
             const column = this.findObject(this.option.column, "parentId");
             column.dicData = res.data.data;

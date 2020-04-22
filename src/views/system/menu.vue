@@ -1,6 +1,7 @@
 <template>
   <basic-container>
     <avue-crud :option="option"
+               :table-loading="loading"
                :data="data"
                ref="crud"
                v-model="form"
@@ -24,6 +25,16 @@
                    @click="handleDelete">删 除
         </el-button>
       </template>
+      <template slot-scope="scope" slot="menu">
+        <el-button
+          type="text"
+          icon="el-icon-circle-plus-outline"
+          size="small"
+          @click.stop="handleAdd(scope.row,scope.index)"
+          v-if="userInfo.authority.includes('admin')"
+        >新增子项
+        </el-button>
+      </template>
       <template slot-scope="{row}"
                 slot="source">
         <div style="text-align:center">
@@ -43,6 +54,7 @@
     data() {
       return {
         form: {},
+        loading: true,
         selectionList: [],
         query: {},
         page: {
@@ -61,6 +73,7 @@
           index: true,
           selection: true,
           viewBtn: true,
+          menuWidth: 300,
           column: [
             {
               label: "菜单名称",
@@ -232,7 +245,7 @@
     },
 
     computed: {
-      ...mapGetters(["permission"]),
+      ...mapGetters(["userInfo", "permission"]),
       permissionList() {
         return {
           addBtn: this.vaildData(this.permission.menu_add, false),
@@ -250,6 +263,16 @@
       }
     },
     methods: {
+      handleAdd(row) {
+        this.$refs.crud.value.parentId = row.id;
+        this.$refs.crud.option.column.filter(item => {
+          if (item.prop === "parentId") {
+            item.value = row.id;
+            item.addDisabled = true;
+          }
+        });
+        this.$refs.crud.rowAdd();
+      },
       rowSave(row, done, loading) {
         add(row).then(() => {
           done();
@@ -341,7 +364,9 @@
         this.page.pageSize = pageSize;
       },
       onLoad(page, params = {}) {
+        this.loading = true;
         getList(page.currentPage, page.pageSize, Object.assign(params, this.query)).then(res => {
+          this.loading = false;
           this.data = res.data.data;
         });
       }

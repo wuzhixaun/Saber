@@ -1,6 +1,7 @@
 <template>
   <basic-container>
     <avue-crud :option="option"
+               :table-loading="loading"
                :data="data"
                ref="crud"
                v-model="form"
@@ -15,6 +16,7 @@
                @selection-change="selectionChange"
                @current-change="currentChange"
                @size-change="sizeChange"
+               @refresh-change="refreshChange"
                @on-load="onLoad">
       <template slot="menuLeft">
         <el-button type="danger"
@@ -24,12 +26,33 @@
                    v-if="permission.user_delete"
                    @click="handleDelete">删 除
         </el-button>
+        <el-button type="info"
+                   size="small"
+                   plain
+                   v-if="userInfo.authority.includes('admin')"
+                   icon="el-icon-user"
+                   @click="handleGrant">角色配置
+        </el-button>
         <el-button type="primary"
                    size="small"
                    plain
                    v-if="permission.user_reset"
                    icon="el-icon-refresh"
                    @click="handleReset">密码重置
+        </el-button>
+        <el-button type="success"
+                   size="small"
+                   plain
+                   v-if="userInfo.authority.includes('admin')"
+                   icon="el-icon-upload2"
+                   @click="handleImport">导入
+        </el-button>
+        <el-button type="warning"
+                   size="small"
+                   plain
+                   v-if="userInfo.authority.includes('admin')"
+                   icon="el-icon-download"
+                   @click="handleExport">导出
         </el-button>
       </template>
       <template slot-scope="{row}"
@@ -41,22 +64,56 @@
         <el-tag>{{row.deptName}}</el-tag>
       </template>
     </avue-crud>
+    <el-dialog title="用户角色配置"
+               append-to-body
+               :visible.sync="roleBox"
+               width="345px">
+
+      <el-tree :data="roleGrantList"
+               show-checkbox
+               default-expand-all
+               node-key="id"
+               ref="treeRole"
+               :default-checked-keys="roleTreeObj"
+               :props="props">
+      </el-tree>
+
+      <span slot="footer" class="dialog-footer">
+            <el-button @click="roleBox = false">取 消</el-button>
+            <el-button type="primary"
+                       @click="submitRole">确 定</el-button>
+          </span>
+    </el-dialog>
+    <el-dialog title="用户数据导入"
+               append-to-body
+               :visible.sync="excelBox"
+               width="555px">
+      <avue-form :option="excelOption" v-model="excelForm" :upload-after="uploadAfter">
+        <template slot="excelTemplate">
+          <el-button type="primary" @click="handleTemplate()">
+            点击下载<i class="el-icon-download el-icon--right"></i>
+          </el-button>
+        </template>
+      </avue-form>
+    </el-dialog>
   </basic-container>
 </template>
 
 <script>
   import {
     getList,
-    getUser,
     remove,
     update,
     add,
+    grant,
     resetPassword
   } from "@/api/system/user";
   import {getDeptTree} from "@/api/system/dept";
   import {getRoleTree} from "@/api/system/role";
+  import {getPostList} from "@/api/system/post";
   import {mapGetters} from "vuex";
   import website from '@/config/website';
+  import {getToken} from '@/util/auth';
 
   export default {
     data() {
@@ -78,6 +135,9 @@
       };
       return {
         form: {},
+        roleBox: false,
+        excelBox: false,
+        loading: true,
         selectionList: [],
         query: {},
         page: {
@@ -89,6 +149,12 @@
           roleTree: [],
           deptTree: [],
         },
+        props: {
+          label: "title",
+          value: "key"
+        },
+        roleGrantList: [],
+        roleTreeObj: [],
         option: {
           height: 'auto',
           calcHeight: 80,
@@ -124,7 +190,7 @@
               addDisplay: website.tenantMode,
               editDisplay: website.tenantMode,
               viewDisplay: website.tenantMode,
-              search: website.tenantMode,
+              search: false,
               rules: [{
                 required: true,
                 message: "请输入所属租户",
@@ -150,7 +216,6 @@
             {
               label: "用户昵称",
               prop: "name",
-              search: true,
               rules: [{
                 required: true,
                 message: "请输入用户昵称",
@@ -160,6 +225,7 @@
             {
               label: "用户姓名",
               prop: "realName",
+              search: true,
               rules: [{
                 required: true,
                 message: "请输入用户姓名",
@@ -199,6 +265,28 @@
                 message: "请选择所属部门",
                 trigger: "click"
               }]
+            },
+            {
+              label: "用户编号",
+              prop: "code",
+              hide: true,
+            },
+            {
+              label: "所属岗位",
+              prop: "postId",
+              type: "tree",
+              multiple: true,
+              dicData: [],
+              hide: true,
+              props: {
+                label: "postName",
+                value: "id"
+              },
+              rules: [{
+                required: true,
+                message: "请选择所属岗位",
+                trigger: "click"
+              }],
             },
             {
               label: "手机号码",
@@ -247,7 +335,33 @@
             }
           ]
         },
-        data: []
+        data: [],
+        excelForm: {},
+        excelOption: {
+          submitBtn: false,
+          emptyBtn: false,
+          column: [
+            {
+              label: '模板上传',
+              prop: 'excelFile',
+              type: 'upload',
+              drag: true,
+              loadText: '模板上传中，请稍等',
+              span: 24,
+              propsHttp: {
+                res: 'data'
+              },
+              tip: '请上传 .xls,.xlsx 标准格式文件',
+              action: "/api/blade-user/import-user"
+            },
+            {
+              label: '模板下载',
+              prop: 'excelTemplate',
+              formslot: true,
+              span: 24,
+            }
+          ]
+        }
       };
     },
     watch: {
@@ -261,11 +375,15 @@
             const column = this.findObject(this.option.column, "roleId");
             column.dicData = res.data.data;
           });
+          getPostList(this.form.tenantId).then(res => {
+            const column = this.findObject(this.option.column, "postId");
+            column.dicData = res.data.data;
+          });
         }
-      }
+      },
     },
     computed: {
-      ...mapGetters(["permission"]),
+      ...mapGetters(["userInfo", "permission"]),
       permissionList() {
         return {
           addBtn: this.vaildData(this.permission.user_add, false),
@@ -283,9 +401,21 @@
       },
     },
     methods: {
+      submitRole() {
+        const roleList = this.$refs.treeRole.getCheckedKeys().join(",");
+        grant(this.ids, roleList).then(() => {
+          this.roleBox = false;
+          this.$message({
+            type: "success",
+            message: "操作成功!"
+          });
+          this.onLoad(this.page);
+        });
+      },
       rowSave(row, done, loading) {
         row.deptId = row.deptId.join(",");
         row.roleId = row.roleId.join(",");
+        row.postId = row.postId.join(",");
         add(row).then(() => {
           done();
           this.onLoad(this.page);
@@ -301,6 +431,7 @@
       rowUpdate(row, index, done, loading) {
         row.deptId = row.deptId.join(",");
         row.roleId = row.roleId.join(",");
+        row.postId = row.postId.join(",");
         update(row).then(() => {
           done();
           this.onLoad(this.page);
@@ -384,19 +515,45 @@
             this.$refs.crud.toggleSelection();
           });
       },
+      handleGrant() {
+        if (this.selectionList.length === 0) {
+          this.$message.warning("请选择至少一条数据");
+          return;
+        }
+        this.roleTreeObj = [];
+        if (this.selectionList.length === 1) {
+          this.roleTreeObj = this.selectionList[0].roleId.split(",");
+        }
+        getRoleTree().then(res => {
+          this.roleGrantList = res.data.data;
+          this.roleBox = true;
+        });
+      },
+      handleImport() {
+        this.excelBox = true;
+      },
+      uploadAfter(res, done, loading, column) {
+        window.console.log(column);
+        done();
+        this.excelBox = false;
+        this.refreshChange();
+      },
+      handleExport() {
+        this.$confirm("是否导出用户数据?", "提示", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          type: "warning"
+        }).then(() => {
+          const searchForm = this.$refs.crud.searchForm;
+          window.open(`/api/blade-user/export-user?blade-auth=${getToken()}&account=${searchForm.account}&realName=${searchForm.realName}`);
+        });
+      },
+      handleTemplate() {
+        window.open(`/api/blade-user/export-template?blade-auth=${getToken()}`);
+      },
       beforeOpen(done, type) {
         if (["edit", "view"].includes(type)) {
-          getUser(this.form.id).then(res => {
-            this.form = res.data.data;
-            this.form.deptId = this.form.deptId.split(",");
-            this.form.deptId.forEach((ele, index) => {
-              this.form.deptId[index] = Number(ele);
-            });
-            this.form.roleId = this.form.roleId.split(",");
-            this.form.roleId.forEach((ele, index) => {
-              this.form.roleId[index] = Number(ele);
-            });
-          });
+          // 预留
         }
         done();
       },
@@ -406,11 +563,16 @@
       sizeChange(pageSize) {
         this.page.pageSize = pageSize;
       },
+      refreshChange() {
+        this.onLoad(this.page, this.query);
+      },
       onLoad(page, params = {}) {
+        this.loading = true;
         getList(page.currentPage, page.pageSize, Object.assign(params, this.query)).then(res => {
           const data = res.data.data;
           this.page.total = data.total;
           this.data = data.records;
+          this.loading = false;
         });
         getDeptTree(this.form.tenantId).then(res => {
           const column = this.findObject(this.option.column, "deptId");
@@ -418,6 +580,10 @@
         });
         getRoleTree(this.form.tenantId).then(res => {
           const column = this.findObject(this.option.column, "roleId");
+          column.dicData = res.data.data;
+        });
+        getPostList(this.form.tenantId).then(res => {
+          const column = this.findObject(this.option.column, "postId");
           column.dicData = res.data.data;
         });
       }
