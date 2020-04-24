@@ -120,9 +120,11 @@
         this.query = {};
         this.onLoad(this.page);
       },
-      searchChange(params) {
+      searchChange(params, done) {
         this.query = params;
+        this.page.currentPage = 1;
         this.onLoad(this.page, params);
+        done();
       },
       beforeOpen(done, type) {
         if (["edit", "view"].includes(type)) {
