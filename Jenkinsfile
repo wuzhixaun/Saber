@@ -28,9 +28,7 @@ podTemplate(label: label, containers: [
     stage('代码编译打包') {
       container('node') {
         echo "代码编译打包阶段"
-        sh "npm install -g yarn --registry=https://registry.npm.taobao.org"
-        sh "yarn config set registry https://registry.npm.taobao.org -g"
-        sh "yarn build"
+        sh "yarn && yarn config set registry https://registry.npm.taobao.org -g && yarn build"
       }
     }
 
