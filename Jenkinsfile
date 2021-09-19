@@ -17,7 +17,7 @@ podTemplate(label: label, containers: [
     def imageTag = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
     // 仓库地址
     def registryUrl = "registry-vpc.cn-shenzhen.aliyuncs.com"
-    def imageEndpoint = "wuzhixuan/Saber"
+    def imageEndpoint = "wuzhixuan/saber"
     // 镜像
     def image = "${registryUrl}/${imageEndpoint}:${imageTag}"
 
@@ -28,7 +28,9 @@ podTemplate(label: label, containers: [
     stage('代码编译打包') {
       container('node') {
         echo "代码编译打包阶段"
-        sh "yarn install && yarn build"
+        sh "npm install -g yarn --registry=https://registry.npm.taobao.org"
+        sh "yarn config set registry https://registry.npm.taobao.org -g"
+        sh "yarn build"
       }
     }
 
