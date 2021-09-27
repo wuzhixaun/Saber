@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: saber
-    namespace: blade
+  namespace: blade
 spec:
   replicas: 1
   selector:
