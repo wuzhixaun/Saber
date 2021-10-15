@@ -1,6 +1,6 @@
 export default {
   tip: '提示',
-  title: '吴志旋开发平台',
+  title: '哈哈哈开发平台',
   logoutTip: '退出系统, 是否继续?',
   submitText: '确定',
   cancelText: '取消',
@@ -65,7 +65,7 @@ export default {
   },
   login: {
     title: '登录 ',
-    info: '吴志旋开发平台',
+    info: '哈哈哈开发平台',
     tenantId: '请输入租户ID',
     username: '请输入账号',
     password: '请输入密码',
